@@ -1,161 +1,141 @@
 import sys
-import math
 import socket
 import time
-import pdb
 import select
 import struct
-import termstatus
+
 
 class netGPIB:
-    def __init__(self,ip,gpibAddr,eot='\004',debug=0, auto=False):
+    def __init__(self, ip: str, gpibAddr: int, eot: str = '\004', debug: int = 0, auto: bool = False):
 
-        #End of Transmission character
-        self.eot=eot
+        # End of Transmission character
+        self.eot = eot
         # EOT character number in the ASCII table
-        self.eotNum=struct.unpack('B',eot.encode())[0]
-       
+        self.eotNum = struct.unpack('B', eot.encode())[0]
 
-        #Debug flag
+        # Debug flag
         self.debug = debug
 
-        #Auto mode
+        # Auto mode
         self.auto = auto
 
         self.ip = ip
-        self.gpibAddr=gpibAddr
+        self.gpibAddr = gpibAddr
         self.timeout = 100
-        #Connect to the GPIB-Ethernet converter
-        netAddr=(ip, 1234)
+
+        # Connect to the GPIB-Ethernet converter
+        netAddr = (ip, 1234)
         self.netSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.netSock.settimeout(100)
         self.netSock.connect(netAddr)
-        #print(self.netSock.connect(netAddr))
-        #quit()
-        
 
-
-        #Initialize the GPIB-Ethernet converter
+        # Initialize the GPIB-Ethernet converter
         self.netSock.setblocking(0)
-        self.netSock.send("++addr ".encode()+str(self.gpibAddr).encode()+b"\n")
-        time.sleep(0.1)
-        self.netSock.send("++eos 3\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++mode 1\n".encode())
-        time.sleep(0.1)
-        if self.auto:
-            self.netSock.send("++auto 1\n".encode())
-        else:
-            self.netSock.send("++auto 0\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++ifc\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++read_tmo_ms 3000\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++eot_char ".encode()+str(self.eotNum).encode()+b"\n")
-        self.netSock.send("++eot_enable 1\n".encode())
-        self.netSock.send("++addr ".encode()+str(self.gpibAddr).encode()+b"\n")
-        
-    def refresh(self):
-        self.netSock.send("++addr ".encode()+str(self.gpibAddr).encode()+b"\n")
-        time.sleep(0.1)
-        self.netSock.send("++eos 3\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++mode 1\n".encode())
-        time.sleep(0.1)
-        if self.auto:
-            self.netSock.send("++auto 1\n".encode())
-        else:
-            self.netSock.send("++auto 0\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++ifc\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++read_tmo_ms 3000\n".encode())
-        time.sleep(0.1)
-        self.netSock.send("++eot_char".encode()+str(self.eotNum).encode()+b"\n")
-        self.netSock.send("++eot_enable 1\n".encode())
-        self.netSock.send("++addr ".encode()+str(self.gpibAddr).encode()+b"\n")
+        self._init_controller()
 
+    def _init_controller(self) -> None:
+        """Send initialization commands to the GPIB-Ethernet controller."""
+        auto_flag = "1" if self.auto else "0"
+        cmds = [
+            f"++addr {self.gpibAddr}\n",
+            "++eos 3\n",
+            "++mode 1\n",
+            f"++auto {auto_flag}\n",
+            "++ifc\n",
+            "++read_tmo_ms 3000\n",
+            f"++eot_char {self.eotNum}\n",
+            "++eot_enable 1\n",
+            f"++addr {self.gpibAddr}\n",
+        ]
+        for cmd in cmds:
+            self.netSock.send(cmd.encode())
+            time.sleep(0.1)
 
-    def getData(self, buf, sleep=0.1):
-        data=""
-        dlen=0
-        if self.debug == True:
-            progressInfo=termstatus.statusTxt("0 bytes received")
-        while 1: # Repeat reading data until eot is found
-            while 1:  # Read some data
-                readSock, writeSock, errSock = select.select([self.netSock],[],[],self.timeout)
-               
-                if len(readSock) == 1:
-                    data1 = readSock[0].recv(buf).decode('latin-1')
-                    if self.debug == True:
-                        dlen=dlen+len(data1)
-                        progressInfo.update(str(dlen)+' bytes received')
-                    break
-                
+    def refresh(self) -> None:
+        """Re-send initialization commands to reset the controller state."""
+        self._init_controller()
 
-            if data1[-1] == self.eot: #if eot is found at the end
-                data = data + data1[:-1] #remove eot
+    def getData(self, buf: int, sleep: float = 0.1) -> str:
+        """Read data from the socket until the EOT character is received."""
+        data = ""
+        dlen = 0
+
+        while True:  # Repeat reading until EOT is found
+            readSock, _, _ = select.select([self.netSock], [], [], self.timeout)
+            if not readSock:
+                raise RuntimeError(
+                    f"Socket read timed out after {self.timeout}s waiting for data from {self.ip}"
+                )
+
+            data1 = readSock[0].recv(buf).decode('latin-1')
+
+            if self.debug:
+                dlen += len(data1)
+                sys.stdout.write(f'\r{dlen} bytes received')
+                sys.stdout.flush()
+
+            if data1[-1] == self.eot:  # EOT found at end of chunk
+                data += data1[:-1]     # Strip EOT and stop
                 break
             else:
-                data = data + data1
-                time.sleep(0.1)
+                data += data1
+                time.sleep(sleep)
 
-        if self.debug == True:
-            progressInfo.end()
+        if self.debug:
+            sys.stdout.write(f'\r{dlen} bytes received\n')
+            sys.stdout.flush()
+
         return data
-            
-    def query(self,string,buf=100,sleep=0):
+
+    def query(self, string: str, buf: int = 100, sleep: float = 0) -> str:
         """Send a query to the device and return the result."""
-        self.netSock.send(string.encode()+b"\n")
+        self.netSock.send(string.encode() + b"\n")
         if not self.auto:
             time.sleep(sleep)
-            self.netSock.send("++read eoi\n".encode()) #Change to listening mode
+            self.netSock.send("++read eoi\n".encode())  # Switch to listening mode
         return self.getData(buf)
-    
-    def command(self,string,sleep=0):
+
+    def command(self, string: str, sleep: float = 0) -> None:
         """Send a command to the device."""
-        self.netSock.send(string.encode()+b"\n")
+        self.netSock.send(string.encode() + b"\n")
         time.sleep(sleep)
 
-    def spoll(self):
-        """Perform a serial polling and return the result."""
+    def spoll(self) -> bytes:
+        """Perform a serial poll and return the result."""
         self.netSock.send("++spoll\n".encode())
-        while 1:  # Read some data
-            readSock, writeSock, errSock = select.select([self.netSock],[],[],3)
-            if len(readSock) == 1:
-                data = readSock[0].recv(100)
-                break
-
+        readSock, _, _ = select.select([self.netSock], [], [], 3)
+        if not readSock:
+            raise RuntimeError(f"Serial poll timed out waiting for response from {self.ip}")
+        data = readSock[0].recv(100)
         return data[:-2]
-    
-    def close(self):
+
+    def close(self) -> None:
+        """Close the socket connection."""
         self.netSock.close()
-        
-    def setDebugMode(self, debugFlag):
-        if debugFlag:
-            self.debug=1
-        else:
-            self.debug=0
+
+    def setDebugMode(self, debugFlag: bool) -> None:
+        self.debug = bool(debugFlag)
 
 
-def gpibGetData(netSock, buf, eot, debug=0):
-    data=""
-    while 1: # Repeat reading data until eot is found
-        while 1:  # Read some data
-            readSock, writeSock, errSock = select.select([netSock],[],[],3)
-            if len(readSock) == 1:
-                data1 = readSock[0].recv(buf)
-                if debug == True:
-                    print(str(len(data1))+' bytes received')
-                break
-                
+def gpibGetData(netSock: socket.socket, buf: int, eot: str, debug: bool = False) -> str:
+    """Standalone helper: read data from a raw socket until EOT is found."""
+    data = ""
 
-        if data1[len(data1)-1] == eot: #if eot is found at the end
-            data = data + data1[0:len(data1)-1] #remove eot
+    while True:  # Repeat reading until EOT is found
+        readSock, _, _ = select.select([netSock], [], [], 3)
+        if not readSock:
+            raise RuntimeError("Socket read timed out in gpibGetData")
+
+        data1 = readSock[0].recv(buf).decode('latin-1')
+
+        if debug:
+            print(f'{len(data1)} bytes received')
+
+        if data1[-1] == eot:        # EOT found at end of chunk
+            data += data1[:-1]      # Strip EOT and stop
             break
         else:
-            data = data + data1
+            data += data1
             time.sleep(1)
 
     return data
