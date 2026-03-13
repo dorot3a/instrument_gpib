@@ -133,7 +133,7 @@ print('done.')
 
 #File names
 #automatically add date/time to filename
-d = dt.now().strftime('%Y-%m-%d_%H%M_')
+d = dt.now().strftime('%Y-%m-%d_')
 dataFileName=d + options.filename+'.txt'
 paramFileName=d + options.filename+'_params.txt'
 

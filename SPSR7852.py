@@ -21,7 +21,7 @@ import argparse
 import time
 import netgpib
 import SR785
-import termstatus
+from tqdm import tqdm
 from datetime import datetime as dt
 
 # ---------------------------------------------------------------------------
@@ -302,17 +302,18 @@ for bandWidth in options.bandWidths:
 
     # Wait for measurement to finish
     measuring = True
-    print('Averaging completed: ', end='')
-    avgStatus = termstatus.statusTxt("0")
-    while measuring:
-        response = gpibObj.query('DSPS?1').strip()
-        measuring = not int(response)
-        avg = int(gpibObj.query("NAVG?0"))
-        avgStatus.update(str(avg))
-        time.sleep(0.3)
-
-    a = int(gpibObj.query("NAVG?0"))
-    avgStatus.end(str(a))
+    prev_avg = 0
+    with tqdm(total=options.numAvg, unit='avg', desc='Averaging') as pbar:
+        while measuring:
+            response = gpibObj.query('DSPS?1').strip()
+            measuring = not int(response)
+            avg = int(gpibObj.query("NAVG?0"))
+            pbar.update(avg - prev_avg)
+            prev_avg = avg
+            time.sleep(0.3)
+        # Ensure bar reaches 100% on completion
+        final_avg = int(gpibObj.query("NAVG?0"))
+        pbar.update(final_avg - prev_avg)
     print('done')
 
     gpibObj.command('ASCL0')   # Auto scale

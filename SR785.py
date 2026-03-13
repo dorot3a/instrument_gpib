@@ -2,12 +2,11 @@
 # Standard Library imports
 import re
 import sys
-from math import floor
 import time
 # Required custom libraries
 import netgpib
-import termstatus
 import pdb
+from tqdm import tqdm
 
 
 ####################
@@ -16,7 +15,7 @@ import pdb
 
 
 def connectGPIB(ipAddress,gpibAddress):
-    print('Connecting to '+str(ipAddress)+':'+str(gpibAddress)+'...')
+    print(f'Connecting to {ipAddress}:{gpibAddress}...')
     gpibObj=netgpib.netGPIB(ipAddress, gpibAddress, '\004',0)
     print('Connected.')
     #Set output to GPIB
@@ -88,16 +87,16 @@ def getparam(gpibObj, fileRoot, dataFile, paramFile):
 def download(gpibObj):
     data=list()
     freq=list()
-    if gpibObj.query('DFMT?') != r'0\n': # Dual channel, or overlay
+    if int(gpibObj.query('DFMT?')) != 0: # Dual channel, or overlay
         print(gpibObj.query('DFMT?'))
         for disp in range(2):
-            print('Downloading data from display #'+str(disp))
+            print(f'Downloading data from display #{disp}')
             (f,d)=downloadDisplay(gpibObj, disp)
             freq.append(f[:-1])
             data.append(d[:-1])
     else:
         active = int(gpibObj.query('ACTD?')[0])
-        print('Downloading data from display #'+str(active))
+        print(f'Downloading data from display #{active}')
         (f,d)=downloadDisplay(gpibObj, active)
         freq.append(f[:-1])
         data.append(d[:-1])
@@ -110,26 +109,15 @@ def downloadDisplay(gpibObj, disp):
     numPoint = int(gpibObj.query('DSPN?'+str(disp),100))
     freq=[]
     data=[]
-    accomplished=0
     print('Reading data')
-    progressInfo=termstatus.statusTxt('0%')
 
-    for bin in range(numPoint): #Loop for frequency bins
-        percent = int(floor(100*bin/numPoint))
-
-        if (percent - accomplished) >= 1 and percent < 100:
-            progressInfo.update(str(percent)+'%')
-            accomplished = percent
-            pass
-
-        f=gpibObj.query("DBIN?"+str(disp)+","+str(bin),100)
+    for freq_bin in tqdm(range(numPoint), unit='bin', desc=f'Display {disp}'): #Loop for frequency bins
+        f=gpibObj.query(f"DBIN?{disp},{freq_bin}",100)
         f=f[:-1] #Chop new line character
-        d=gpibObj.query("DSPY?"+str(disp)+","+str(bin),100)
+        d=gpibObj.query(f"DSPY?{disp},{freq_bin}",100)
         d=d[:-1] #Chop new line character
         freq.append(f)
         data.append(d)
-
-    progressInfo.end('100%')
     time.sleep(1)
     return (freq,data)
 
@@ -180,36 +168,40 @@ def measure(gpibObj, measType):
     measuring = True
 
     if measType == 'Spectrum':
-        print('Starting ' + measType + ' measurement...')
-        time.sleep(0.1)
-        print('    Averages completed:')
+        print(f'Starting {measType} measurement...')
         avTot=int(gpibObj.query('FAVN?0'))
-        avgStatus=termstatus.progressBar(20,avTot)
-        while measuring:
-            measuring = not int(gpibObj.query('DSPS?1'))
-            avg=int(gpibObj.query("NAVG?0"))
-            avgStatus.update(avg)
-            time.sleep(0.5)
-        avgStatus.update(int(gpibObj.query("NAVG?0")))
+        prev_avg = 0
+        with tqdm(total=avTot, unit='avg', desc='Averages') as pbar:
+            while measuring:
+                measuring = not int(gpibObj.query('DSPS?1'))
+                avg=int(gpibObj.query("NAVG?0"))
+                pbar.update(avg - prev_avg)
+                prev_avg = avg
+                time.sleep(0.5)
+            # Ensure bar reaches 100% on completion
+            final_avg = int(gpibObj.query("NAVG?0"))
+            pbar.update(final_avg - prev_avg)
 
         gpibObj.command('ASCL0') #Auto scale
         gpibObj.command('ASCL1') #Auto scale
 
     elif measType =='TF':
-        print('Starting ' + measType + ' measurement...')
+        print(f'Starting {measType} measurement...')
         time.sleep(1)
         numPoints=int(gpibObj.query('SNPS?0')) #Number of points
-        progressInfo=termstatus.progressBar(20,numPoints)
-        while measuring:
-            #Get status
-            ## Manual says we should check bit 0 as well...
-            #measuring = not (int(gpibObj.query('DSPS?4'))
-            #                 or int(gpibObj.query('DSPS?0')))
-            measuring = not int(gpibObj.query('DSPS?4'))
-            time.sleep(0.1)
-            progressInfo.update(int(gpibObj.query('SSFR?')))
-            time.sleep(0.4)
-        progressInfo.end()
+        prev_pt = 0
+        with tqdm(total=numPoints, unit='pt', desc='Sweep') as pbar:
+            while measuring:
+                #Get status
+                ## Manual says we should check bit 0 as well...
+                #measuring = not (int(gpibObj.query('DSPS?4'))
+                #                 or int(gpibObj.query('DSPS?0')))
+                measuring = not int(gpibObj.query('DSPS?4'))
+                time.sleep(0.1)
+                current_pt = int(gpibObj.query('SSFR?'))
+                pbar.update(current_pt - prev_pt)
+                prev_pt = current_pt
+                time.sleep(0.4)
 
 
 ####################
@@ -222,8 +214,8 @@ def writeParams(gpibObj, paramFile):
     print('Reading instrument parameters')
 
     #Get the display format
-    if int(gpibObj.query("DFMT?")) != '0':
-        dispList = range(2)
+    if int(gpibObj.query("DFMT?")) != 0:
+        dispList = list(range(2))
     else:
         dispList = [int(gpibObj.query('ACTD?')[0])]
 
@@ -236,7 +228,7 @@ def writeParams(gpibObj, paramFile):
     time.sleep(0.1)
 
     for disp in dispList:
-        i=int(gpibObj.query("MGRP?"+str(disp)))
+        i=int(gpibObj.query(f"MGRP?{disp}"))
         measGrp.append({0: 'FFT' ,
                          1: 'Correlation',
                          2: 'Octave',
@@ -245,7 +237,7 @@ def writeParams(gpibObj, paramFile):
                          5: 'Time/Histogram'}[i])
 
     #Get measurement
-        i=int(gpibObj.query("MEAS?"+str(disp)))
+        i=int(gpibObj.query(f"MEAS?{disp}"))
         measurement.append(
         {0: 'FFT 1',
          1: 'FFT 2',
@@ -337,7 +329,7 @@ def writeParams(gpibObj, paramFile):
          }[i])
 
         #View information
-        i=int(gpibObj.query("VIEW?"+str(disp)))
+        i=int(gpibObj.query(f"VIEW?{disp}"))
         view.append({0: 'Log Magnitude',
                      1: 'Linear Magnitude',
                      2: 'Magnitude Squared',
@@ -349,7 +341,7 @@ def writeParams(gpibObj, paramFile):
                      8: 'Nichols'}[i])
 
         #Units
-        result=gpibObj.query('UNIT?'+str(disp))
+        result=gpibObj.query(f'UNIT?{disp}')
         result=result[:-1]  # Chop a new line character
         print(result.replace('û', 'rt'))
         unit.append(result.replace('û', 'rt'))
@@ -466,7 +458,7 @@ def writeParams(gpibObj, paramFile):
         startFreq=gpibObj.query("FSTR?0")[:-1]
         spanFreq=gpibObj.query("FSPN?0")[:-1]
         resDict={'0':'100', '1':'200', '2':'400', '3':'800'}
-        numOfPoints = resDict[gpibObj.query("FLIN?"+str(0))[:-1]]
+        numOfPoints = resDict[gpibObj.query(f"FLIN?{0}")[:-1]]
         numAvg = gpibObj.query("FAVN?0")[:-1]
         avgModDict = {'0':"None", '1':"Vector", '2':"RMS", '3':"PeakHold"}
         avgMode = avgModDict[gpibObj.query("FAVM?0")[:-1]]
@@ -501,19 +493,19 @@ def writeParams(gpibObj, paramFile):
     paramFile.write('#---------- Measurement Parameters ----------\n')
     paramFile.write('# Measurement Group: ')
     for disp in dispList:
-        paramFile.write(' "'+measGrp[disp]+'"')
+        paramFile.write(f' "{measGrp[disp]}"')
     paramFile.write('\n')
     paramFile.write('# Measurements: ')
     for disp in dispList:
-        paramFile.write(' "'+measurement[disp]+'"')
+        paramFile.write(f' "{measurement[disp]}"')
     paramFile.write('\n')
     paramFile.write('# View: ')
     for disp in dispList:
-        paramFile.write(' "'+view[disp]+'"')
+        paramFile.write(f' "{view[disp]}"')
     paramFile.write('\n')
     paramFile.write('# Unit: ')
     for disp in dispList:
-        paramFile.write(' "'+unit[disp]+'"')
+        paramFile.write(f' "{unit[disp]}"')
     paramFile.write('\n')
 
     paramFile.write('#---------- Input Parameters ----------\n')
@@ -545,7 +537,7 @@ def writeParams(gpibObj, paramFile):
     paramFile.write('#---------- Measurement Data ----------\n')
     paramFile.write('# [Freq(Hz) ')
     for disp in dispList:
-        paramFile.write('Display '+str(disp)+'('+unit[disp]+') ')
+        paramFile.write(f'Display {disp}({unit[disp]}) ')
     paramFile.write(']\n')
 
 
@@ -633,21 +625,21 @@ def setParameters(gpibObj,params):
 
         if  params['dataMode'] == "dbVrms/rtHz":
             for disp in range(numDisp):
-                gpibObj.command('UNDB'+str(disp)+','+str(1))   # dB ON
-                gpibObj.command('UNPK'+str(disp)+','+str(0))   # Vrms OFF
+                gpibObj.command(f'UNDB{disp},{1}')   # dB ON
+                gpibObj.command(f'UNPK{disp},{0}')   # Vrms OFF
         else:
             for disp in range(numDisp):
-                gpibObj.command('UNDB'+str(disp)+','+str(0))   # dB OFF
-                gpibObj.command('UNPK'+str(disp)+','+str(2))   # Vrms ON
+                gpibObj.command(f'UNDB{disp},{0}')   # dB OFF
+                gpibObj.command(f'UNPK{disp},{2}')   # Vrms ON
 
         for disp in range(numDisp):
-            gpibObj.command('ACTD'+str(disp)) # Change active display
-            gpibObj.command('MEAS'+str(disp)+','+str(disp)) # 0:FFT1, 1:FFT2
-            gpibObj.command('VIEW'+str(disp)+',0') #Log Magnitude
-            gpibObj.command('PSDU'+str(disp)+',1') # PSD ON
-            gpibObj.command('DISP'+str(disp)+',1') # Live display on
+            gpibObj.command(f'ACTD{disp}') # Change active display
+            gpibObj.command(f'MEAS{disp},{disp}') # 0:FFT1, 1:FFT2
+            gpibObj.command(f'VIEW{disp},0') #Log Magnitude
+            gpibObj.command(f'PSDU{disp},1') # PSD ON
+            gpibObj.command(f'DISP{disp},1') # Live display on
 
-        gpibObj.command('FLIN2,'+str(fRes))     # Frequency resolution
+        gpibObj.command(f'FLIN2,{fRes}')     # Frequency resolution
         gpibObj.command('FAVG2,1')              # Averaging On
 
         avgModDict = {"None":0, "Vector":1, "RMS":2, "PeakHold":3}
