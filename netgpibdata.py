@@ -10,8 +10,6 @@
  
  Updated Dorotea Macri 20260310"""
 
-
-#file structure assumes GPIB files are located 2 levels down from a base folder and saves data one level down from the base folder in /Measurements/
  
 
 import re
@@ -28,7 +26,7 @@ import datetime as dt
 usage = """usage: %prog [options]
 
 This command will retrieve data from a network connected GPIB device.
-The downloaded data will be saved to FILENAME.txt and the measurement parameters will be saved to FILENAME.par.
+The downloaded data will be saved to FILENAME.txt and the measurement parameters will be saved to FILENAME_params.txt.
 Optionally, you can plot the downloaded data by specifying --plot option.
 You need matplotlib and numpy modules to plot the data.
 """
@@ -39,7 +37,8 @@ parser = optparse.OptionParser(usage=usage)
 parser.add_option("-f", "--file", dest="filename",
                   help="Output file name without an extension", default="data")
 parser.add_option("-l", "--location", dest="folder",
-                  help="Output location", default="../../Measurements/GRAVITES/")
+                  help="Output location", default=".")
+#by default saves to current directory
 parser.add_option("-d", "--device",
                   dest="deviceName", default="SR785",
                   help="A GPIB device name. Default = SR785.")
@@ -47,7 +46,7 @@ parser.add_option("-a", "--address",
                   dest="gpibAddress", type="int", default=10,
                   help="GPIB device address")
 parser.add_option("-i", "--ip",
-                  dest="ipAddress", default="gpib01",
+                  dest="ipAddress", default="192.168.1.108",
                   help="IP address/Host name")
 parser.add_option("--plot",
                   dest="plotData", default=False,
@@ -111,8 +110,9 @@ paramFile.write('Memo: '+options.memo+'\n')
 
 #Call suitable functions for getting data
 if options.deviceName == 'SR785':
-    SR785.getdata(gpibObj, dataFile, paramFile)
     SR785.getparam(gpibObj, options.filename, dataFile, paramFile)
+    SR785.getdata(gpibObj, dataFile, paramFile)
+
     
     dataFile.close()
     paramFile.close()

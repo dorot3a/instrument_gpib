@@ -1,36 +1,37 @@
 from numpy import array, transpose, hstack
-import fileinput
+from pathlib import Path
 import matplotlib.pyplot as mpl
 import re
 
+def _read_lines(filepath):
+    """Helper to read lines from a file, skipping blank lines."""
+    with open(filepath, 'r') as f:
+        return f.readlines()
+
 def plotSR785(filename, xlog=True, ylog=None):
-    """Plot downloaded data from SR785 """
-    dataFile = filename + '.txt'
-    paramFile = filename + '_params.txt'
+    """Plot downloaded data from SR785"""
+    filename = Path(filename)
+    dataFile = filename
+    paramFile = Path(str(filename) + '_params')
 
     # Scan parameter file to get units
-    unitLinePat = re.compile(r'^Unit:')
-    measLinePat = re.compile(r'^Measurements:')
-    mgLinePat = re.compile(r'^Measurement Group:')
+    unitLinePat = re.compile(r'# Unit:')
+    measLinePat = re.compile(r'# Measurements:')
+    mgLinePat = re.compile(r'# Measurement Group:')
     quotePat = re.compile(r'"([^"]*)"')
     units = []
     titles = []
     dataType = 'other'
 
-    for line in fileinput.input(paramFile):
+    for line in _read_lines(paramFile):
         if unitLinePat.match(line):
             units = quotePat.findall(line)
-            for i in range(len(units)):
-                units[i] = re.sub(r'rt', r'$\\mathsf{\\sqrt{\1}}$', units[i])
+            units = [re.sub(r'rt(.*)', r'$\\mathsf{\\sqrt{\1}}$', u) for u in units]
         if measLinePat.match(line):
             titles = quotePat.findall(line)
         if mgLinePat.match(line):
             mgs = quotePat.findall(line)
-            if mgs[0] == 'FFT':
-                dataType = 'spectrum'
-            else:
-                dataType = 'other'
-    fileinput.close()
+            dataType = 'spectrum' if mgs[0] == 'FFT' else 'other'
 
     # Read data
     firstLine = True
@@ -39,7 +40,7 @@ def plotSR785(filename, xlog=True, ylog=None):
     data = []
 
     if dataType == 'spectrum':
-        for line in fileinput.input(dataFile):
+        for line in _read_lines(dataFile):
             if dispLinePat.match(line):
                 firstLine = True
                 dispID += 1
@@ -47,13 +48,11 @@ def plotSR785(filename, xlog=True, ylog=None):
             if line.strip()[0] == '#':
                 continue
             if firstLine:
-                data.append(transpose(array([list(map(float, line.split()))])))
+                data.append(transpose(array([list(map(float, line.replace(',', ' ').split()))])))
                 firstLine = False
             else:
-                data[dispID] = hstack((data[dispID], transpose(array([list(map(float, line.split()))]))))
-        fileinput.close()
+                data[dispID] = hstack((data[dispID], transpose(array([list(map(float, line.replace(',', ' ').split()))]))))
 
-        # Plot spectra
         numPlot = len(data)
         fig = mpl.figure()
         fig.subplots_adjust(hspace=0.4)
@@ -72,7 +71,7 @@ def plotSR785(filename, xlog=True, ylog=None):
             axList[i].autoscale_view(True, True, False)
 
     else:  # Not spectrum data
-        for line in fileinput.input(dataFile):
+        for line in _read_lines(dataFile):
             if line.strip()[0] == '#':
                 continue
             if firstLine:
@@ -80,9 +79,7 @@ def plotSR785(filename, xlog=True, ylog=None):
                 firstLine = False
             else:
                 data = hstack((data, transpose(array([list(map(float, line.split()))]))))
-        fileinput.close()
 
-        # Plot non-spectrum data
         numPlot = len(data) - 1
         fig = mpl.figure()
         fig.subplots_adjust(hspace=0.4)
@@ -99,21 +96,20 @@ def plotSR785(filename, xlog=True, ylog=None):
             axList[i].set_ylabel(units[i])
             axList[i].set_title(titles[i])
             axList[i].autoscale_view(True, True, False)
-        plot_title = input('Enter plot title:')
+        plot_title = input('Enter plot title: ')
         fig.suptitle(plot_title)
-        
+
     fig.show()
     return axList
 
 
 def plotTFSR785(filename):
-    """Plot TF data from SR785 """
-    dataFile = filename + '.txt'
+    """Plot TF data from SR785"""
+    dataFile = Path(str(filename) + '.txt')
 
-    # Read data
     firstLine = True
     data = None
-    for line in fileinput.input(dataFile):
+    for line in _read_lines(dataFile):
         if line.strip()[0] == '#':
             continue
         if firstLine:
@@ -121,7 +117,6 @@ def plotTFSR785(filename):
             firstLine = False
         else:
             data = hstack((data, transpose(array([list(map(float, line.split()))]))))
-    fileinput.close()
 
     fig = mpl.figure()
     axList = []
@@ -157,10 +152,9 @@ def plotTFSR785(filename):
 
 
 def plotTSSR785(filename):
-    """Plot TS data from SR785 """
-    dataFile = filename + '.txt'
+    """Plot TS data from SR785"""
+    dataFile = Path(str(filename) + '.txt')
 
-    # Read data
     firstLine = True
     timeSeries = True
     timeLinePat = re.compile(r'^#Time series')
@@ -170,7 +164,7 @@ def plotTSSR785(filename):
     tsData = []
     hsData = []
 
-    for line in fileinput.input(dataFile):
+    for line in _read_lines(dataFile):
         if timeLinePat.match(line):
             firstLine = True
             timeSeries = True
@@ -194,15 +188,14 @@ def plotTSSR785(filename):
                 tsData[tDispID] = hstack((tsData[tDispID], transpose(array([list(map(float, line.split()))]))))
             else:
                 hsData[hDispID] = hstack((hsData[hDispID], transpose(array([list(map(float, line.split()))]))))
-    fileinput.close()
 
     numFig = len(tsData) + len(hsData)
-    half = numFig // 2  # Integer division fix for Python 3
+    half = numFig // 2
     fig = mpl.figure()
     fig.subplots_adjust(hspace=0.4)
     axList = []
 
-    for i in range(half):  # Plot time series
+    for i in range(half):
         axList.append(fig.add_subplot(half, half, i + 1))
         axList[i].plot(tsData[i][0], tsData[i][1])
         axList[i].grid(True)
@@ -210,7 +203,7 @@ def plotTSSR785(filename):
         axList[i].set_ylabel('V')
         axList[i].set_xlabel('sec')
 
-    for i in range(half):  # Plot histogram
+    for i in range(half):
         j = i + half
         axList.append(fig.add_subplot(half, half, j + 1))
         axList[j].plot(hsData[i][0], hsData[i][1])
@@ -225,12 +218,12 @@ def plotTSSR785(filename):
 
 
 def plotSPAG4395A(filename, title, xlog=True, ylog=True, psdunits=False):
-    """Plot downloaded spectrum data from AG4395A """
-    dataFile = filename + '.txt'
+    """Plot downloaded spectrum data from AG4395A"""
+    dataFile = Path(str(filename) + '.txt')
 
     firstLine = True
     data = None
-    for line in fileinput.input(dataFile):
+    for line in _read_lines(dataFile):
         if line.strip()[0] == '#':
             continue
         if firstLine:
@@ -238,7 +231,6 @@ def plotSPAG4395A(filename, title, xlog=True, ylog=True, psdunits=False):
             firstLine = False
         else:
             data = hstack((data, transpose(array([list(map(float, line.split()))]))))
-    fileinput.close()
 
     fig = mpl.figure()
     mag = fig.add_subplot(1, 1, 1)
@@ -256,12 +248,12 @@ def plotSPAG4395A(filename, title, xlog=True, ylog=True, psdunits=False):
 
 
 def plotTFAG4395A(filename, title):
-    """Plot TF data from AG4395A """
-    dataFile = filename + '.txt'
+    """Plot TF data from AG4395A"""
+    dataFile = Path(str(filename) + '.txt')
 
     firstLine = True
     data = None
-    for line in fileinput.input(dataFile):
+    for line in _read_lines(dataFile):
         if line.strip()[0] == '#':
             continue
         if firstLine:
@@ -269,7 +261,6 @@ def plotTFAG4395A(filename, title):
             firstLine = False
         else:
             data = hstack((data, transpose(array([list(map(float, line.split()))]))))
-    fileinput.close()
 
     fig = mpl.figure()
     mag = fig.add_subplot(2, 1, 1)
@@ -292,12 +283,12 @@ def plotTFAG4395A(filename, title):
 
 
 def plotTFHP4195A(filename, title):
-    """Plot TF data from HP4195A """
-    dataFile = filename + '.txt'
+    """Plot TF data from HP4195A"""
+    dataFile = Path(str(filename) + '.txt')
 
     firstLine = True
     data = None
-    for line in fileinput.input(dataFile):
+    for line in _read_lines(dataFile):
         if line.strip()[0] == '#':
             continue
         if firstLine:
@@ -305,7 +296,6 @@ def plotTFHP4195A(filename, title):
             firstLine = False
         else:
             data = hstack((data, transpose(array([list(map(float, line.split()))]))))
-    fileinput.close()
 
     fig = mpl.figure()
     mag = fig.add_subplot(2, 1, 1)
@@ -328,12 +318,12 @@ def plotTFHP4195A(filename, title):
 
 
 def plotSPHP4195A(filename, title, xlog=True, ylog=True, psdunits=False):
-    """Plot downloaded spectrum data from HP4195A """
-    dataFile = filename + '.txt'
+    """Plot downloaded spectrum data from HP4195A"""
+    dataFile = Path(str(filename) + '.txt')
 
     firstLine = True
     data = None
-    for line in fileinput.input(dataFile):
+    for line in _read_lines(dataFile):
         if line.strip()[0] == '#':
             continue
         if firstLine:
@@ -341,7 +331,6 @@ def plotSPHP4195A(filename, title, xlog=True, ylog=True, psdunits=False):
             firstLine = False
         else:
             data = hstack((data, transpose(array([list(map(float, line.split()))]))))
-    fileinput.close()
 
     fig = mpl.figure()
     mag = fig.add_subplot(1, 1, 1)
