@@ -410,7 +410,7 @@ def writeParams(gpibObj, paramFile):
     #Anti-Aliasing Filter
     i=int(gpibObj.query("I1AF?"))
     CH1AAFilter={0: 'Off', 1: 'On'}[i]
-    i=int(gpibObj.query("I1AF?"))
+    i=int(gpibObj.query("I2AF?"))  # ✅ Fixed typo: was I1AF? again
     CH2AAFilter={0: 'Off', 1: 'On'}[i]
 
     #Source type
@@ -454,6 +454,7 @@ def writeParams(gpibObj, paramFile):
 
     paramFile.write('#---------- Measurement Setup ------------\n')
 
+    # ✅ Use measGrp[0] to get first display measurement group
     if measGrp[0] == 'FFT':
         startFreq=gpibObj.query("FSTR?0")[:-1]
         spanFreq=gpibObj.query("FSPN?0")[:-1]
@@ -489,23 +490,27 @@ def writeParams(gpibObj, paramFile):
         paramFile.write('# Settling cycles = '+settleCycles+'\n')
         paramFile.write('# Integration cycles = '+intCycles+'\n')
 
-
     paramFile.write('#---------- Measurement Parameters ----------\n')
+    
+    # ✅ Use enumerate to safely access list indices
     paramFile.write('# Measurement Group: ')
-    for disp in dispList:
-        paramFile.write(f' "{measGrp[disp]}"')
+    for i in range(len(measGrp)):
+        paramFile.write(f' "{measGrp[i]}"')
     paramFile.write('\n')
+    
     paramFile.write('# Measurements: ')
-    for disp in dispList:
-        paramFile.write(f' "{measurement[disp]}"')
+    for i in range(len(measurement)):
+        paramFile.write(f' "{measurement[i]}"')
     paramFile.write('\n')
+    
     paramFile.write('# View: ')
-    for disp in dispList:
-        paramFile.write(f' "{view[disp]}"')
+    for i in range(len(view)):
+        paramFile.write(f' "{view[i]}"')
     paramFile.write('\n')
+    
     paramFile.write('# Unit: ')
-    for disp in dispList:
-        paramFile.write(f' "{unit[disp]}"')
+    for i in range(len(unit)):
+        paramFile.write(f' "{unit[i]}"')
     paramFile.write('\n')
 
     paramFile.write('#---------- Input Parameters ----------\n')
@@ -536,10 +541,10 @@ def writeParams(gpibObj, paramFile):
 
     paramFile.write('#---------- Measurement Data ----------\n')
     paramFile.write('# [Freq(Hz) ')
-    for disp in dispList:
-        paramFile.write(f'Display {disp}({unit[disp]}) ')
+    # ✅ Use range(len(unit)) to safely iterate through available displays
+    for i in range(len(unit)):
+        paramFile.write(f'Display {dispList[i]}({unit[i]}) ')
     paramFile.write(']\n')
-
 
 def setParameters(gpibObj,params):
     # Read dictionary of settings to set up the instrument

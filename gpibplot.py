@@ -8,11 +8,50 @@ def _read_lines(filepath):
     with open(filepath, 'r') as f:
         return f.readlines()
 
+def _find_file(filename, search_dir=None, suffix=None):
+    """Find a file using rglob, ignoring extensions.
+    
+    Args:
+        filename: Base filename to search for (with or without extension)
+        search_dir: Directory to search in (defaults to current directory)
+        suffix: Optional suffix to append (e.g., '_param')
+    
+    Returns:
+        Path object of the found file
+    
+    Raises:
+        FileNotFoundError if file not found
+    """
+    if search_dir is None:
+        search_dir = Path('.')
+    else:
+        search_dir = Path(search_dir)
+    
+    # Extract base name without extension
+    base_name = Path(filename).stem
+    
+    # Build the target name (with suffix if provided)
+    if suffix:
+        target_name = base_name + suffix
+    else:
+        target_name = base_name
+    
+    # Search using rglob
+    for f in search_dir.rglob('*'):
+        if f.is_file() and f.stem == target_name:
+            return f
+    
+    raise FileNotFoundError(f"File not found: {target_name} in {search_dir}")
+
+
 def plotSR785(filename, xlog=True, ylog=None):
     """Plot downloaded data from SR785"""
     filename = Path(filename)
-    dataFile = filename
-    paramFile = Path(str(filename) + '_params')
+    search_dir = filename.parent if filename.parent != Path() else Path('.')
+    
+    # ✅ Use rglob to find files
+    dataFile = _find_file(filename.name, search_dir)
+    paramFile = _find_file(filename.name, search_dir, suffix='_param')
 
     # Scan parameter file to get units
     unitLinePat = re.compile(r'# Unit:')
@@ -105,7 +144,11 @@ def plotSR785(filename, xlog=True, ylog=None):
 
 def plotTFSR785(filename):
     """Plot TF data from SR785"""
-    dataFile = Path(str(filename) + '.txt')
+    filename = Path(filename)
+    search_dir = filename.parent if filename.parent != Path() else Path('.')
+    
+    # ✅ Use rglob to find file
+    dataFile = _find_file(filename.name, search_dir)
 
     firstLine = True
     data = None
@@ -153,7 +196,11 @@ def plotTFSR785(filename):
 
 def plotTSSR785(filename):
     """Plot TS data from SR785"""
-    dataFile = Path(str(filename) + '.txt')
+    filename = Path(filename)
+    search_dir = filename.parent if filename.parent != Path() else Path('.')
+    
+    # ✅ Use rglob to find file
+    dataFile = _find_file(filename.name, search_dir)
 
     firstLine = True
     timeSeries = True
@@ -219,7 +266,11 @@ def plotTSSR785(filename):
 
 def plotSPAG4395A(filename, title, xlog=True, ylog=True, psdunits=False):
     """Plot downloaded spectrum data from AG4395A"""
-    dataFile = Path(str(filename) + '.txt')
+    filename = Path(filename)
+    search_dir = filename.parent if filename.parent != Path() else Path('.')
+    
+    # ✅ Use rglob to find file
+    dataFile = _find_file(filename.name, search_dir)
 
     firstLine = True
     data = None
@@ -249,7 +300,11 @@ def plotSPAG4395A(filename, title, xlog=True, ylog=True, psdunits=False):
 
 def plotTFAG4395A(filename, title):
     """Plot TF data from AG4395A"""
-    dataFile = Path(str(filename) + '.txt')
+    filename = Path(filename)
+    search_dir = filename.parent if filename.parent != Path() else Path('.')
+    
+    # ✅ Use rglob to find file
+    dataFile = _find_file(filename.name, search_dir)
 
     firstLine = True
     data = None
@@ -284,7 +339,11 @@ def plotTFAG4395A(filename, title):
 
 def plotTFHP4195A(filename, title):
     """Plot TF data from HP4195A"""
-    dataFile = Path(str(filename) + '.txt')
+    filename = Path(filename)
+    search_dir = filename.parent if filename.parent != Path() else Path('.')
+    
+    # ✅ Use rglob to find file
+    dataFile = _find_file(filename.name, search_dir)
 
     firstLine = True
     data = None
@@ -319,7 +378,11 @@ def plotTFHP4195A(filename, title):
 
 def plotSPHP4195A(filename, title, xlog=True, ylog=True, psdunits=False):
     """Plot downloaded spectrum data from HP4195A"""
-    dataFile = Path(str(filename) + '.txt')
+    filename = Path(filename)
+    search_dir = filename.parent if filename.parent != Path() else Path('.')
+    
+    # ✅ Use rglob to find file
+    dataFile = _find_file(filename.name, search_dir)
 
     firstLine = True
     data = None
