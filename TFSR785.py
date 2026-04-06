@@ -17,6 +17,7 @@ import netgpib
 import SR785
 import termstatus
 import os 
+from datetime import datetime as dt
 
 sourcedir = os.path.expanduser("~") + r'/MIT Dropbox/Dorotea Macri/GRAVITES Measurements/electronics testing/'
 
@@ -266,8 +267,9 @@ def main():
     print('done.')
     
     # File names
-    data_filename = f'{options.filename}.txt'
-    param_filename = f'{options.filename}_param.txt'
+    timestamp = dt.now().strftime('%Y-%m-%d_%H%M_')
+    data_filename = f'{timestamp}_{options.filename}.txt'
+    param_filename = f'{data_filename}_param.txt'
     
     print(f'Data will be written into {data_filename}')
     print(f'Parameters will be written into {param_filename}')
