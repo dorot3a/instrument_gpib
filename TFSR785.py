@@ -15,9 +15,9 @@ import math
 import time
 import netgpib
 import SR785
-import termstatus
 import os 
 from datetime import datetime as dt
+from tqdm import tqdm
 
 sourcedir = os.path.expanduser("~") + r'/MIT Dropbox/Dorotea Macri/GRAVITES Measurements/electronics testing/'
 
@@ -187,22 +187,24 @@ def setup_measurement_parameters(gpib_obj, options):
     gpib_obj.command(f'SSAM{options.excAmp}')
     time.sleep(0.1)
 
-
 def wait_for_measurement(gpib_obj, num_points):
-    """Wait for measurement to complete."""
+    """Wait for measurement to complete and display progress with tqdm."""
     measuring = True
-    percentage = 0
-    progress_info = termstatus.statusTxt('0%')
+    previous_percentage = 0
     
-    while measuring:
-        # Get status
-        measuring = not int(gpib_obj.query('DSPS?4'))
-        accomplished = int(gpib_obj.query('SSFR?'))
-        percentage = int(math.floor(100 * accomplished / num_points))
-        progress_info.update(f'{percentage}%')
-        time.sleep(0.3)
-    
-    progress_info.end('100%')
+    with tqdm(total=100, desc='Measurement Progress', unit='%', ncols=80) as pbar:
+        while measuring:
+            # Get status
+            measuring = not int(gpib_obj.query('DSPS?4'))
+            accomplished = int(gpib_obj.query('SSFR?'))
+            percentage = int(math.floor(100 * accomplished / num_points))
+            
+            # Update progress bar
+            if percentage > previous_percentage:
+                pbar.update(percentage - previous_percentage)
+                previous_percentage = percentage
+            
+            time.sleep(0.3)
 
 
 def download_data(gpib_obj):
