@@ -19,7 +19,7 @@ parser.add_argument("-f", "--file", dest="filename",
 parser.add_argument("-l", "--location", dest="folder",
                     help="Output location",
                     nargs='+',
-                    default=["C:/Users/tea/MIT Dropbox/Dorotea Macri/GRAVITES Measurements/electronics testing/"])
+                    default=["C:/Users/tea/MIT Dropbox/Dorotea Macri/GRAVITES Measurements/electronics testing/20260331 servo2 measurements/"])
 parser.add_argument("-i", "--ipython",
                     dest="ipython", default=False,
                     action="store_true",
