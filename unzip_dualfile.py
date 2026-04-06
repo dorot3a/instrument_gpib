@@ -22,7 +22,6 @@ usage="""usage: %prog [options] Unzip measurements taken simultaneously on the S
  as if the measurements were taken individually"""
  
 def unzip_files(filename, filedir, save1, save2):
-    print('!')
     print(filename)
     pattern = re.compile(re.escape(filename))  # escape special regex chars
     parampat = re.compile('_param')

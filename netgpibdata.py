@@ -17,10 +17,10 @@ import sys
 import math
 import optparse
 import SR785
-import AG4395A
+#import AG4395A
 import netgpib
 import datetime as dt
-
+import os
 
 #Usage text
 usage = """usage: %prog [options]
@@ -32,12 +32,12 @@ You need matplotlib and numpy modules to plot the data.
 """
 
 #Parse options
-
+sourcedir = os.path.expanduser("~") + '\\MIT Dropbox\\Dorotea Macri\\GRAVITES Measurements\\electronics testing\\'
 parser = optparse.OptionParser(usage=usage)
 parser.add_option("-f", "--file", dest="filename",
                   help="Output file name without an extension", default="data")
 parser.add_option("-l", "--location", dest="folder",
-                  help="Output location", default=".")
+                  help="Output location", default=sourcedir)
 #by default saves to current directory
 parser.add_option("-d", "--device",
                   dest="deviceName", default="SR785",
@@ -88,7 +88,7 @@ gpibObj = netgpib.netGPIB(options.ipAddress, options.gpibAddress, '\004',0)
 print('done.')
 
 #automatically add date/time to filename
-d = dt.now().strftime('%Y-%m-%d_%H%M_')
+d = dt.datetime.now().strftime('%Y-%m-%d_%H%M_')
 # open files
 dataFileName=d+options.filename+'.txt'
 paramFileName=d+options.filename+'_param.txt'

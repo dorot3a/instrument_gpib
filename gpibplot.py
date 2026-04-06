@@ -49,7 +49,7 @@ def plotSR785(filename, xlog=True, ylog=None):
     filename = Path(filename)
     search_dir = filename.parent if filename.parent != Path() else Path('.')
     
-    # ✅ Use rglob to find files
+    #  Use rglob to find files
     dataFile = _find_file(filename.name, search_dir)
     paramFile = _find_file(filename.name, search_dir, suffix='_param')
 
@@ -114,10 +114,10 @@ def plotSR785(filename, xlog=True, ylog=None):
             if line.strip()[0] == '#':
                 continue
             if firstLine:
-                data = transpose(array([list(map(float, line.split()))]))
+                data = transpose(array([list(map(float, line.replace(',', '').split()))]))
                 firstLine = False
             else:
-                data = hstack((data, transpose(array([list(map(float, line.split()))]))))
+                data = hstack((data, transpose(array([list(map(float, line.replace(',', '').split()))]))))
 
         numPlot = len(data) - 1
         fig = mpl.figure()
@@ -156,10 +156,10 @@ def plotTFSR785(filename):
         if line.strip()[0] == '#':
             continue
         if firstLine:
-            data = transpose(array([list(map(float, line.split()))]))
+            data = transpose(array([list(map(float, line.replace(',', '').split()))]))
             firstLine = False
         else:
-            data = hstack((data, transpose(array([list(map(float, line.split()))]))))
+            data = hstack((data, transpose(array([list(map(float, line.replace(',', '').split()))]))))
 
     fig = mpl.figure()
     axList = []
@@ -226,15 +226,15 @@ def plotTSSR785(filename):
             continue
         if firstLine:
             if timeSeries:
-                tsData.append(transpose(array([list(map(float, line.split()))])))
+                tsData.append(transpose(array([list(map(float, line.replace(',', '').split()))])))
             else:
-                hsData.append(transpose(array([list(map(float, line.split()))])))
+                hsData.append(transpose(array([list(map(float, line.replace(',', '').split()))])))
             firstLine = False
         else:
             if timeSeries:
-                tsData[tDispID] = hstack((tsData[tDispID], transpose(array([list(map(float, line.split()))]))))
+                tsData[tDispID] = hstack((tsData[tDispID], transpose(array([list(map(float, line.replace(',', '').split()))]))))
             else:
-                hsData[hDispID] = hstack((hsData[hDispID], transpose(array([list(map(float, line.split()))]))))
+                hsData[hDispID] = hstack((hsData[hDispID], transpose(array([list(map(float, line.replace(',', '').split()))]))))
 
     numFig = len(tsData) + len(hsData)
     half = numFig // 2
@@ -278,10 +278,10 @@ def plotSPAG4395A(filename, title, xlog=True, ylog=True, psdunits=False):
         if line.strip()[0] == '#':
             continue
         if firstLine:
-            data = transpose(array([list(map(float, line.split()))]))
+            data = transpose(array([list(map(float, line.replace(',', '').split()))]))
             firstLine = False
         else:
-            data = hstack((data, transpose(array([list(map(float, line.split()))]))))
+            data = hstack((data, transpose(array([list(map(float, line.replace(',', '').split()))]))))
 
     fig = mpl.figure()
     mag = fig.add_subplot(1, 1, 1)
@@ -312,10 +312,10 @@ def plotTFAG4395A(filename, title):
         if line.strip()[0] == '#':
             continue
         if firstLine:
-            data = transpose(array([list(map(float, line.split()))]))
+            data = transpose(array([list(map(float, line.replace(',', '').split()))]))
             firstLine = False
         else:
-            data = hstack((data, transpose(array([list(map(float, line.split()))]))))
+            data = hstack((data, transpose(array([list(map(float, line.replace(',', '').split()))]))))
 
     fig = mpl.figure()
     mag = fig.add_subplot(2, 1, 1)
@@ -351,10 +351,10 @@ def plotTFHP4195A(filename, title):
         if line.strip()[0] == '#':
             continue
         if firstLine:
-            data = transpose(array([list(map(float, line.split()))]))
+            data = transpose(array([list(map(float, line.replace(',', '').split()))]))
             firstLine = False
         else:
-            data = hstack((data, transpose(array([list(map(float, line.split()))]))))
+            data = hstack((data, transpose(array([list(map(float, line.replace(',', '').split()))]))))
 
     fig = mpl.figure()
     mag = fig.add_subplot(2, 1, 1)
@@ -390,10 +390,10 @@ def plotSPHP4195A(filename, title, xlog=True, ylog=True, psdunits=False):
         if line.strip()[0] == '#':
             continue
         if firstLine:
-            data = transpose(array([list(map(float, line.split()))]))
+            data = transpose(array([list(map(float, line.replace(',', '').split()))]))
             firstLine = False
         else:
-            data = hstack((data, transpose(array([list(map(float, line.split()))]))))
+            data = hstack((data, transpose(array([list(map(float, line.replace(',', '').split()))]))))
 
     fig = mpl.figure()
     mag = fig.add_subplot(1, 1, 1)

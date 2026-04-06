@@ -25,8 +25,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Execute a transfer function measurement using SR785.\n"
                     "Measurement results are saved in FILENAME.dat and parameters in FILENAME.par.",
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     
     parser.add_argument("-f", "--file", dest="filename", default="TF",
                         help="Output file name without extension (default: TF)")

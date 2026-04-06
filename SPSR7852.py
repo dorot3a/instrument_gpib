@@ -23,7 +23,7 @@ import netgpib
 import SR785
 from tqdm import tqdm
 from datetime import datetime as dt
-
+import os
 # ---------------------------------------------------------------------------
 # Parse options
 # ---------------------------------------------------------------------------
@@ -39,13 +39,14 @@ is taken per bandwidth, each saved to its own file.
 Optionally, it can plot the retrieved data. You need matplotlib and numpy
 modules to plot the data.
 """
+sourcedir = os.path.expanduser("~") + '\\MIT Dropbox\\Dorotea Macri\\GRAVITES Measurements\\electronics testing\\'
 
 parser = argparse.ArgumentParser(description=usage)
 parser.add_argument("-f", "--file", dest="filename",
                     help="Output file name without an extension", default="data")
 parser.add_argument("-l", "--location", dest="folder",
                     help="Output location",
-                    default="C:/Users/ligo/MIT Dropbox/Dorotea Macri/GRAVITES Measurements/electronics testing/")
+                    default=sourcedir)
 parser.add_argument("-i", "--ip",
                     dest="ipAddress", default="192.168.1.108",
                     help="IP address/Host name")
@@ -251,7 +252,6 @@ time.sleep(0.1)
 
 avgModDict = {"None": 0, "Vector": 1, "RMS": 2, "PeakHold": 3}
 avgModID = avgModDict.get(options.avgMode, 2)
-gpibObj.command(f'FAVM2,{avgModID}')   # Averaging mode
 time.sleep(0.1)
 
 gpibObj.command('FAVT2,0')   # Averaging Type = Linear
@@ -275,11 +275,12 @@ time.sleep(0.1)
 saved_files = []   # collect base filenames for optional plotting
 
 for bandWidth in options.bandWidths:
-
+    
     print(f'\n--- Starting measurement for bandwidth: {bandWidth} ---')
 
     # Set bandwidth for this sweep
     gpibObj.command(f'FSPN2,{bandWidth}')   # Frequency span
+    gpibObj.command(f'FAVM2,{avgModID}')   # Averaging mode
     time.sleep(0.5)
 
     # Build filenames: embed bandwidth tag so files don't collide
